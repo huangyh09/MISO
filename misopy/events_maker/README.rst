@@ -97,4 +97,4 @@ Notes
 
 * Events definition is mainly copied from Yarden's codes and hasn't been checked carefully. I mean the codes rather than the output files.
 
-* Quality check will be provided, for example SE exon surrounded by AT--exon--GC.
+* Quality check will be provided, for example SE exon surrounded by AG-as_exon-GT.
