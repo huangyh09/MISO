@@ -1,73 +1,14 @@
-import os, sys, operator, string
+## Load annotation file into linked list
+
+import numpy as np
 import collections
-
-# import rnaseqlib
-# import rnaseqlib.tables as tables
-
-# def table_fname_to_header(table_fname):
-#     """
-#     Returns the header for the table.
-#     """
-#     name = os.path.basename(table_fname)
-#     header = None
-#     if name.startswith("ensGene"):
-#         header = tables.UCSC_ENSGENE_HEADER
-#     elif name.startswith("refGene"):
-#         header = tables.UCSC_REFGENE_HEADER
-#     elif name.startswith("knownGene"):
-#         header = tables.UCSC_KNOWNGENE_HEADER
-#     else:
-#         return None
-#     # Designate one of the columns as a 'gene' column. Used to
-#     # annotate which event a gene falls in.
-#     if "name2" in header:
-#         # If name2 exists (like it does in refGene and ensGene
-#         # tables), use it as the gene column
-#         header[header.index("name2")] = "gene"
-#     elif "gene" in header:
-#         pass
-#     else:
-#         # If name2 isn't present (e.g. in knownGene), then
-#         # use the transcript ID field 'name'
-#         header[header.index("name")] = "gene"
-#     return header
-    
-
-# # Generic function to read in a file.
-# def readTable(table_f):
-#     data = [] 
-#     colToIdx = {}
-
-#     table_in = open(table_f)
-#     header = table_fname_to_header(table_f)
-#     if header is None:
-#         raise Exception, "Unrecognized table file %s" %(table_f)
-
-#     for line in open(table_f):
-#         if line.startswith("#"):
-#             # Skip header
-#             continue
-#         else:
-#             vals = line.strip().split("\t")
-#             # Mapping from column names in UCSC table to values
-#             # when no header is given
-#             col_values = \
-#                 dict([(header[col_num], vals[col_num]) \
-#                       for col_num in range(len(header))])
-#             item = [col_values["chrom"],
-#                     col_values["exonStarts"],
-#                     col_values["exonEnds"],
-#                     col_values["strand"],
-#                     col_values["gene"]]
-#             data.append(item)
-#     return data
-
 
 
 # Generic function to read in a file in UCSC table format.
 def readTable_ucsc(table_f):
-    """Make sure that the UCSC table has chrom, strand, exonStarts, 
-    exonEnds, and geneID in the right columns.
+    """
+    Make sure that the UCSC table has chrom, strand, exonStarts, 
+    exonEnds, and geneID in the correct columns.
     """
     data = []
     for line in open(table_f):
@@ -82,9 +23,9 @@ def readTable_ucsc(table_f):
 
 
 # Generic function to read in a file in gff format.
-# This change included by Yuanhua Huang <Y.Huang@ed.ac.uk>
 def readTable_gff(table_f, ftype="gff3"):
-    """We assume that the gene comes out before transcript;
+    """
+    We assume that the gene comes out before transcript;
     and transcript comes out before exons.
     """
     fid = open(table_f, "r")
@@ -110,39 +51,35 @@ def readTable_gff(table_f, ftype="gff3"):
             continue
 
         elif vals[2] == "transcript" or vals[2] == "mRNA":
+            exons = []
             chrom = vals[0]
             strand = vals[6]
-            exonStarts = []
-            exonStops = []
             continue
 
         elif vals[2] == "exon":
-            exonStarts.append(str(int(vals[3])-1))
-            exonStops.append(vals[4])
+            exons.append([str(int(vals[3])-1), vals[4]])
             
         if (i == len(all_lines)-1 or 
             all_lines[i+1].strip().split("\t")[2] == "gene" or
             all_lines[i+1].strip().split("\t")[2] == "transcript" or
             all_lines[i+1].strip().split("\t")[2] == "mRNA"):
 
-            exonStarts = ",".join(exonStarts)
-            exonStops = ",".join(exonStops)
+            exons = np.sort(np.array(exons), axis=0)
+            exonStarts = ",".join(list(exons[:,0]))
+            exonStops = ",".join(list(exons[:,1]))
+
             data.append([chrom, exonStarts, exonStops, strand, gene_id])
     return data
 
 
-def readTable(table_f, ftype="gtf"):
-    """read table or gtf/gff3 files.
-    """
-    if ftype == "gff3" or ftype == "gtf":
-        return readTable_gff(table_f, ftype)
-    elif ftype == "ucsc":
-        return readTable_ucsc(table_f)
-
-
 # Get splice graph.
-def populateSplicegraph(table_f, ss5_ss3_F, ss3_ss5_F, ss5_ss3_R, ss3_ss5_R):
-    data = readTable(table_f)
+def populateSplicegraph(table_f, ftype, ss5_ss3_F, ss3_ss5_F, ss5_ss3_R, 
+    ss3_ss5_R):
+
+    if ftype == "gff3" or ftype == "gtf":
+        data =  readTable_gff(table_f, ftype)
+    elif ftype == "ucsc":
+        data =  readTable_ucsc(table_f)
   
     #ss5_ss3_F = {}    # donor to acceptor (forward)
     #ss3_ss5_F = {}    # acceptor to donor (forward)

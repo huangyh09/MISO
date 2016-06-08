@@ -1,56 +1,25 @@
-##
-## Define alternative splicing events
-##
-import os, sys, operator, string
-import parseTables
+# Define alternative splicing events
+#
+# The 5 core functions in this file is almost identical
+# as Yarden's original files, which may need some check,
+# particularly for RI, as the original file used another
+# function.
 
-# import rnaseqlib
-# import rnaseqlib.utils as utils
-# import rnaseqlib.events.SpliceGraph as splicegraph
-
-import utils
-import SpliceGraph as splicegraph
-
-import gffutils
-import gffutils.helpers as helpers
+import os, operator, string
 
 LETTERS = string.uppercase
 
 
-def prepareSplicegraph(*args):
-    """
-    Prepare splicegraph for use in defining events.
-    Reads in all tables given in *args and populates some dictionaries
-    of splice sites.
-    Returns the splice site dictionaries.
-    """
-    DtoA_F = {}
-    AtoD_F = {}
-    DtoA_R = {}
-    AtoD_R = {}
-
-    for i in range(len(args)): 
-        print "Reading table", args[i]
-        DtoA_F, AtoD_F, DtoA_R, AtoD_R = \
-            parseTables.populateSplicegraph(args[i],
-                                            DtoA_F, AtoD_F, DtoA_R, AtoD_R)
-    DtoA_F, AtoD_F, DtoA_R, AtoD_R = \
-        parseTables.cleanSplicegraph(DtoA_F, AtoD_F, DtoA_R, AtoD_R)
-
-    return DtoA_F, AtoD_F, DtoA_R, AtoD_R
-
-
-# Define alt. 3' splice sites
-# A3SS are events where a donor is spliced to >1 acceptor, and the acceptors
-# share a downstream donor site in the same exon.
-#
-# Output a gff3.
 def A3SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
-         flanking='commonshortest',
-         multi_iso=False):
+         flanking='commonshortest', multi_iso=False):
+    """
+    Define alt. 3' splice sites
+    A3SS are events where a donor is spliced to >1 acceptor, and the 
+    acceptors share a downstream donor site in the same exon.
+    """
     print "Generating alternative 3\' splice sites (A3SS)"
     if os.path.isfile(gff3_f):
-        print "  - Found file, skipping..."
+        print("  - Found file, skipping...")
         return
     out = open(gff3_f, 'w')
  
@@ -197,15 +166,15 @@ def A3SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                     out.write("\t".join([chrom, 'A3SS', 'mRNA', prevAcceptorCoord,\
                                         nextDonorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A;Parent=" + name]) + "\n")
-                                    out.write("\t".join([chrom, 'A3SS', 'mRNA', prevAcceptorCoord,\
-                                        nextDonorCoord, '.', strand, '.',\
-                                        "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'A3SS', 'exon', prevAcceptorCoord,\
                                         donorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A.up;Parent=" + name + ".A"]) + "\n")
                                     out.write("\t".join([chrom, 'A3SS', 'exon', acceptorCoords[iso2],\
                                         nextDonorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A.coreAndExt;Parent=" + name + ".A"]) + "\n")
+                                    out.write("\t".join([chrom, 'A3SS', 'mRNA', prevAcceptorCoord,\
+                                        nextDonorCoord, '.', strand, '.',\
+                                        "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'A3SS', 'exon', prevAcceptorCoord,\
                                         donorCoord, '.', strand, '.',\
                                         "ID=" + name + ".B.up;Parent=" + name + ".B"]) + "\n")
@@ -223,15 +192,15 @@ def A3SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                     out.write("\t".join([chrom, 'A3SS', 'mRNA', nextDonorCoord,\
                                         prevAcceptorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A;Parent=" + name]) + "\n")
-                                    out.write("\t".join([chrom, 'A3SS', 'mRNA', nextDonorCoord,\
-                                        prevAcceptorCoord, '.', strand, '.',\
-                                        "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'A3SS', 'exon', donorCoord,\
                                         prevAcceptorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A.up;Parent=" + name + ".A"]) + "\n")
                                     out.write("\t".join([chrom, 'A3SS', 'exon', nextDonorCoord,\
                                         acceptorCoords[iso2], '.', strand, '.',\
                                         "ID=" + name + ".A.coreAndExt;Parent=" + name + ".A"]) + "\n")
+                                    out.write("\t".join([chrom, 'A3SS', 'mRNA', nextDonorCoord,\
+                                        prevAcceptorCoord, '.', strand, '.',\
+                                        "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'A3SS', 'exon', donorCoord,\
                                         prevAcceptorCoord, '.', strand, '.',\
                                         "ID=" + name + ".B.up;Parent=" + name + ".B"]) + "\n")
@@ -242,17 +211,17 @@ def A3SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
     out.close()
 
 
-# Define alt. 5' splice sites
-# A3SS are events where >1 donor is spliced to an acceptor, and the donors share an
-# upstream acceptor site in the same exon.
-#
-# Output a gff3.
+
 def A5SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
-         flanking='commonshortest',
-         multi_iso=False):
+         flanking='commonshortest', multi_iso=False):
+    """
+    Define alt. 5' splice sites
+    A3SS are events where >1 donor is spliced to an acceptor, and the 
+    donors share an upstream acceptor site in the same exon.
+    """
     print "Generating alternative 5\' splice sites (A5SS)"
     if os.path.isfile(gff3_f):
-        print "  - Found file, skipping..."
+        print("  - Found file, skipping...")
         return
     out = open(gff3_f, 'w')
  
@@ -402,15 +371,15 @@ def A5SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                     out.write("\t".join([chrom, 'A5SS', 'mRNA', prevAcceptorCoord,\
                                         nextDonorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A;Parent=" + name]) + "\n")
-                                    out.write("\t".join([chrom, 'A5SS', 'mRNA', prevAcceptorCoord,\
-                                        nextDonorCoord, '.', strand, '.',\
-                                        "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'A5SS', 'exon', prevAcceptorCoord,\
                                         donorCoords[iso2], '.', strand, '.',\
                                         "ID=" + name + ".A.coreAndExt;Parent=" + name + ".A"]) + "\n")
                                     out.write("\t".join([chrom, 'A5SS', 'exon', acceptorCoord,\
                                         nextDonorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A.dn;Parent=" + name + ".A"]) + "\n")
+                                    out.write("\t".join([chrom, 'A5SS', 'mRNA', prevAcceptorCoord,\
+                                        nextDonorCoord, '.', strand, '.',\
+                                        "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'A5SS', 'exon', prevAcceptorCoord,\
                                         donorCoords[iso1], '.', strand, '.',\
                                         "ID=" + name + ".B.core;Parent=" + name + ".B"]) + "\n")
@@ -429,15 +398,15 @@ def A5SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                     out.write("\t".join([chrom, 'A5SS', 'mRNA', nextDonorCoord,\
                                         prevAcceptorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A;Parent=" + name]) + "\n")
-                                    out.write("\t".join([chrom, 'A5SS', 'mRNA', nextDonorCoord,\
-                                        prevAcceptorCoord, '.', strand, '.',\
-                                        "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'A5SS', 'exon', donorCoords[iso1],\
                                         prevAcceptorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A.coreAndExt;Parent=" + name + ".A"]) + "\n")
                                     out.write("\t".join([chrom, 'A5SS', 'exon', nextDonorCoord,\
                                         acceptorCoord, '.', strand, '.',\
                                         "ID=" + name + ".A.dn;Parent=" + name + ".A"]) + "\n")
+                                    out.write("\t".join([chrom, 'A5SS', 'mRNA', nextDonorCoord,\
+                                        prevAcceptorCoord, '.', strand, '.',\
+                                        "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'A5SS', 'exon', donorCoords[iso2],\
                                         prevAcceptorCoord, '.', strand, '.',\
                                         "ID=" + name + ".B.core;Parent=" + name + ".B"]) + "\n")
@@ -447,21 +416,22 @@ def A5SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
     out.close()
 
 
-# Define skipped exons.
-#
-# Arguments are:
-# splice site dictionaries, followed by output file and a keyword to denote method of
-# selecting flanking exon coordinates:
-# shortest
-# longest
-# commonshortest
-# commonlongest 
-#
 def SE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
        flanking='commonshortest'):
+    """
+    Define skipped exons.
+
+    Arguments are:
+    splice site dictionaries, followed by output file and a keyword to 
+    denote method of selecting flanking exon coordinates:
+      - shortest
+      - longest
+      - commonshortest
+      - commonlongest
+    """
     print "Generating skipped exons (SE)"
     if os.path.isfile(gff3_f):
-        "  - Found file, skipping..."
+        print("  - Found file, skipping...")
         return
     out = open(gff3_f, 'w')
  
@@ -546,9 +516,9 @@ def SE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                 seexon = ":".join([chrom, ss4, ss3, strand])
                                 dnexon = ":".join([chrom, ss6, ss5, strand])
                                 name = "@".join([upexon, seexon, dnexon])
-                                out.write("\t".join([chrom, 'SE', 'gene', ss2, ss5,\
+                                out.write("\t".join([chrom, 'SE', 'gene', ss6, ss1,\
                                     '.', strand, '.', "ID=" + name + ";Name=" + name]) + "\n")
-                                out.write("\t".join([chrom, 'SE', 'mRNA', ss2, ss5,\
+                                out.write("\t".join([chrom, 'SE', 'mRNA', ss6, ss1,\
                                     '.', strand, '.', "ID=" + name + ".A;Parent=" + name]) + "\n")
                                 out.write("\t".join([chrom, 'SE', 'exon', ss2, ss1,\
                                     '.', strand, '.', "ID=" + name + ".A.up;Parent=" + name + ".A"]) + "\n")
@@ -556,7 +526,7 @@ def SE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                     '.', strand, '.', "ID=" + name + ".A.se;Parent=" + name + ".A"]) + "\n")
                                 out.write("\t".join([chrom, 'SE', 'exon', ss6, ss5,\
                                     '.', strand, '.', "ID=" + name + ".A.dn;Parent=" + name + ".A"]) + "\n")
-                                out.write("\t".join([chrom, 'SE', 'mRNA', ss2, ss5,\
+                                out.write("\t".join([chrom, 'SE', 'mRNA', ss6, ss1,\
                                     '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                 out.write("\t".join([chrom, 'SE', 'exon', ss2, ss1,\
                                     '.', strand, '.', "ID=" + name + ".B.up;Parent=" + name + ".B"]) + "\n")
@@ -567,14 +537,13 @@ def SE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
 
 
 def MXE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
-        flanking='commonshortest'):
+       flanking='commonshortest'):
     """
     Define mutually exclusive exons.
 
     Arguments are:
-    splice site dictionaries, followed by output file and a keyword to denote method of
-    selecting flanking exon coordinates:
-    
+    splice site dictionaries, followed by output file and a keyword to 
+    denote method of selecting flanking exon coordinates:
       - shortest
       - longest
       - commonshortest
@@ -582,7 +551,7 @@ def MXE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
     """
     print "Generating mutually exclusive exons (MXE)"
     if os.path.isfile(gff3_f):
-        "  - Found file, skipping..."
+        print("  - Found file, skipping...")
         return
     out = open(gff3_f, 'w')
 
@@ -686,14 +655,14 @@ def MXE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                                 '.', strand, '.', "ID=" + name + ";Name=" + name]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'mRNA', ss1, ss8,\
                                                 '.', strand, '.', "ID=" + name + ".A;Parent=" + name]) + "\n")
-                                            out.write("\t".join([chrom, 'MXE', 'mRNA', ss1, ss8,\
-                                                '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss1, ss2,\
                                                 '.', strand, '.', "ID=" + name + ".A.up;Parent=" + name + ".A"]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss3, ss4,\
                                                 '.', strand, '.', "ID=" + name + ".A.mxe1;Parent=" + name + ".A"]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss7, ss8,\
                                                 '.', strand, '.', "ID=" + name + ".A.dn;Parent=" + name + ".A"]) + "\n")
+                                            out.write("\t".join([chrom, 'MXE', 'mRNA', ss1, ss8,\
+                                                '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss1, ss2,\
                                                 '.', strand, '.', "ID=" + name + ".B.up;Parent=" + name + ".B"]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss5, ss6,\
@@ -711,14 +680,14 @@ def MXE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                                 '.', strand, '.', "ID=" + name + ";Name=" + name]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'mRNA', ss8, ss1,\
                                                 '.', strand, '.', "ID=" + name + ".A;Parent=" + name]) + "\n")
-                                            out.write("\t".join([chrom, 'MXE', 'mRNA', ss8, ss1,\
-                                                '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss2, ss1,\
                                                 '.', strand, '.', "ID=" + name + ".A.up;Parent=" + name + ".A"]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss4, ss3,\
                                                 '.', strand, '.', "ID=" + name + ".A.mxe1;Parent=" + name + ".A"]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss8, ss7,\
                                                 '.', strand, '.', "ID=" + name + ".A.dn;Parent=" + name + ".A"]) + "\n")
+                                            out.write("\t".join([chrom, 'MXE', 'mRNA', ss8, ss1,\
+                                                '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss2, ss1,\
                                                 '.', strand, '.', "ID=" + name + ".B.up;Parent=" + name + ".B"]) + "\n")
                                             out.write("\t".join([chrom, 'MXE', 'exon', ss6, ss5,\
@@ -729,29 +698,29 @@ def MXE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
 
 
 
-
+# TODO: need more test on RI
 def RI(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
        multi_iso=False):
     """
     Define retained introns.
 
     Arguments are:
-    splice site dictionaries, followed by output file and a
-    keyword to denote method of selecting flanking exon
-    coordinates:
-    
+    splice site dictionaries, followed by output file and a keyword to 
+    denote method of selecting flanking exon coordinates:
       - shortest
       - longest
       - commonshortest
       - commonlongest 
     """
+    # return
+
     print "Generating retained introns (RI)"
-#    if os.path.isfile(gff3_f):
-#        print "  - Found file, skipping..."
-#        return
+    if os.path.isfile(gff3_f):
+        print("  - Found file, skipping...")
+        return
     out = open(gff3_f, 'w')
 
-    print "ATOD_F: ", AtoD_F
+    # print "ATOD_F: ", AtoD_F
 
     for acceptor in AtoD_F:                                 # iterate through acceptors
         chrom, acceptorcoord, strand = acceptor.split(":")
@@ -762,7 +731,7 @@ def RI(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
             for donor in donors:                           # iterate through these 5'ss
                 rilist = []
                 riAcceptors = [x for x in list(DtoA_R[donor]) if x in AtoD_R]
-                print "riAcceptors: ", riAcceptors
+                # print "riAcceptors: ", riAcceptors
                                                            # get the upstream 3'ss for this 5'ss
                 for riAcceptor in riAcceptors:             # iterate through these 3'ss and get their 5'ss
                     riDonors = [x for x in list(AtoD_R[riAcceptor]) if x in DtoA_R]
@@ -778,7 +747,6 @@ def RI(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
 
                     if multi_iso:
                         if strand == '+':
-
                             upexon = ":".join([chrom, ss1, "|".join(donorlist), strand])
                             dnexon = ":".join([chrom, "|".join(acceptorlist), ss4, strand])
                             name = "@".join([upexon, dnexon])
@@ -798,7 +766,6 @@ def RI(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                     '.', strand, '.', "ID=" + name + ".dn;Parent=" + name + "." + LETTERS[i + 1]]) + "\n")
 
                         else:
-
                             upexon = ":".join([chrom, ss1, "|".join(donorlist), strand])
                             dnexon = ":".join([chrom, "|".join(acceptorlist), ss4, strand])
                             name = "@".join([upexon, dnexon])
@@ -830,10 +797,10 @@ def RI(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                         '.', strand, '.', "ID=" + name + ";Name=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'RI', 'mRNA', ss1, ss4,\
                                         '.', strand, '.', "ID=" + name + ".A;Parent=" + name]) + "\n")
-                                    out.write("\t".join([chrom, 'RI', 'mRNA', ss1, ss4,\
-                                        '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'RI', 'exon', ss1, ss4,\
                                         '.', strand, '.', "ID=" + name + ".ri;Parent=" + name + ".A"]) + "\n")
+                                    out.write("\t".join([chrom, 'RI', 'mRNA', ss1, ss4,\
+                                        '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'RI', 'exon', ss1, donorlist[iso1],\
                                         '.', strand, '.', "ID=" + name + ".up;Parent=" + name + ".B"]) + "\n")
                                     out.write("\t".join([chrom, 'RI', 'exon', acceptorlist[iso2], ss4,\
@@ -848,10 +815,10 @@ def RI(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                         '.', strand, '.', "ID=" + name + ";Name=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'RI', 'mRNA', ss4, ss1,\
                                         '.', strand, '.', "ID=" + name + ".A;Parent=" + name]) + "\n")
-                                    out.write("\t".join([chrom, 'RI', 'mRNA', ss4, ss1,\
-                                        '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'RI', 'exon', ss4, ss1,\
                                         '.', strand, '.', "ID=" + name + ".ri;Parent=" + name + ".A"]) + "\n")
+                                    out.write("\t".join([chrom, 'RI', 'mRNA', ss4, ss1,\
+                                        '.', strand, '.', "ID=" + name + ".B;Parent=" + name]) + "\n")
                                     out.write("\t".join([chrom, 'RI', 'exon', donorlist[iso1], ss1,\
                                         '.', strand, '.', "ID=" + name + ".up;Parent=" + name + ".B"]) + "\n")
                                     out.write("\t".join([chrom, 'RI', 'exon', ss4, acceptorlist[iso2],\
@@ -859,125 +826,4 @@ def RI(DtoA_F, AtoD_F, DtoA_R, AtoD_R, gff3_f,
                                 # Record seen RI
                                 #seen_RIs[name] = True
     out.close()
-
-
-
-
-def load_ucsc_tables(tables_dir,
-                     table_names=["ensGene.txt",
-                                  "knownGene.txt",
-                                  "refGene.txt"]):
-    """
-    Load UCSC tables from a directory.
-    """
-    fnames = []
-    for f in os.listdir(tables_dir):
-        if f in table_names:
-            # Only use recognized table filenames
-            fnames.append(os.path.join(tables_dir, f))
-    table_fnames = [fname for fname in fnames \
-                    if os.path.isfile(fname)]
-    return table_fnames
-
-
-def output_SE(sg, table_fnames, output_fname, flanking):
-    DtoA_F, AtoD_F, DtoA_R, AtoD_R = sg
-    SE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, output_fname,
-       flanking=flanking)
-
-
-def output_MXE(sg, table_fnames, output_fname, flanking):
-    DtoA_F, AtoD_F, DtoA_R, AtoD_R = sg
-    MXE(DtoA_F, AtoD_F, DtoA_R, AtoD_R, output_fname,
-        flanking=flanking)
-
-
-def output_A3SS(sg, table_fnames, output_fname, flanking,
-                multi_iso=False):
-    DtoA_F, AtoD_F, DtoA_R, AtoD_R = sg    
-    A3SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, output_fname,
-         flanking=flanking,
-         multi_iso=multi_iso)
-
-
-def output_A5SS(sg, table_fnames, output_fname, flanking,
-                multi_iso=False):
-    DtoA_F, AtoD_F, DtoA_R, AtoD_R = sg    
-    A5SS(DtoA_F, AtoD_F, DtoA_R, AtoD_R, output_fname,
-         flanking=flanking,
-         multi_iso=multi_iso)
-
-
-def output_RI(sg, table_fnames, output_fname,
-              flanking=None):
-    """
-    Output RI annotation.
-    """
-    print "Outputting retained introns..."
-    gff_out = gffutils.gffwriter.GFFWriter(output_fname)
-    # Define RI with the SpliceGraph object
-    splicegraph.define_RI(sg, gff_out)
-    gff_out.close()
-
-
-def defineAllSplicing(tabledir, gff3dir,
-                      flanking='commonshortest',
-                      multi_iso=False,
-                      genome_label=None,
-                      sanitize=False):
-#                      event_types=["SE", "RI", "MXE", "A3SS", "A5SS"]):
-    """
-    A wrapper to define all splicing events: SE, MXE, RI, A3SS, A5SS
-    RI does not use the "flanking criteria".
-    """
-    if isinstance(multi_iso, str):
-        multi_iso = eval(multi_iso)
-
-    table_fnames = load_ucsc_tables(tabledir)
-    sg = splicegraph.SpliceGraph(table_fnames)
-    DtoA_F, AtoD_F, DtoA_R, AtoD_R = prepareSplicegraph(*table_fnames)
-
-    # Encode the flanking exons rule in output directory
-    gff3dir = os.path.join(gff3dir, flanking)
-    utils.make_dir(gff3dir)
-
-    if genome_label is not None:
-        genome_label = "%s" %(genome_label)
-    else:
-        genome_label = ""
-
-    annotation_fnames = []
-    # Mapping from event type to the function that creates it
-    event_type_to_func = \
-        [("SE", output_SE),
-         ("MXE", output_MXE),
-         ("A3SS", output_A3SS),
-         ("A5SS", output_A5SS),
-         ("RI", output_RI)]
-
-    for event_type, event_func in event_type_to_func:
-        output_fname = \
-            os.path.join(gff3dir, "%s.%s.gff3" %(event_type,
-                                                 genome_label))
-        if event_type == "RI":
-            sg_data = sg
-        else:
-            sg_data = DtoA_F, AtoD_F, DtoA_R, AtoD_R
-        event_func(sg_data, table_fnames, output_fname, flanking=flanking)
-        annotation_fnames.append(output_fname)
-
-    # If asked, sanitize the annotation in place
-    if sanitize:
-        for annotation_fname in annotation_fnames:
-            print "Sanitizing %s" %(annotation_fname)
-            helpers.sanitize_gff_file(annotation_fname,
-                                      in_place=True)
-
-
-
-
-
-
-
-
 
