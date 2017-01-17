@@ -25,10 +25,10 @@ import misopy.pe_utils as pe_utils
 from misopy.parse_csv import csv2dictlist_raw
 
 from misopy.samples_utils import load_samples
-from misopy.sashimi_plot.Sashimi import Sashimi
-from misopy.sashimi_plot.plot_utils.samples_plotter import SamplesPlotter
-from misopy.sashimi_plot.plot_utils.plotting import *
-from misopy.sashimi_plot.plot_utils.plot_gene import plot_density_from_file
+from Sashimi import Sashimi
+from plot_utils.samples_plotter import SamplesPlotter
+from plot_utils.plotting import *
+from plot_utils.plot_gene import plot_density_from_file
 import matplotlib.pyplot as plt
 from matplotlib import rc
 

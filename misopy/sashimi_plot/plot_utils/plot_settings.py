@@ -133,13 +133,19 @@ def parse_plot_settings(settings_filename, event=None, chrom=None,
 
     if ("miso_prefix" in settings) and (event != None and chrom != None) \
         and settings["show_posteriors"]:
-        miso_files = miso_utils.get_miso_output_files(event, chrom, settings)
+        if settings["miso_files"][0][-3:] == ".h5":
+            miso_files = [settings["miso_prefix"]+x for x in settings["miso_files"]]
+        else:
+            miso_files = miso_utils.get_miso_output_files(event, chrom, settings)
     elif "miso_files" in settings:
         miso_files = settings["miso_files"]
     else:
         miso_files = []
     settings["miso_files"] = miso_files
-    
+
+    # print settings["miso_files"]
+    # exit()
+
     if "coverages" in settings:
         coverages = ast.literal_eval(settings["coverages"])
         coverages = map(float, coverages)

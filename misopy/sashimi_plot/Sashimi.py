@@ -7,8 +7,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import rc
 
-import misopy.sashimi_plot.plot_utils.plot_settings as plot_settings
-import misopy.sashimi_plot.plot_utils.plotting as plotting
+import plot_utils.plot_settings as plot_settings
+import plot_utils.plotting as plotting
 
 class Sashimi:
     """
@@ -95,6 +95,6 @@ class Sashimi:
         else:
             output_fname = self.output_filename
         print "Saving plot to: %s" %(output_fname)
-        plt.savefig(output_fname)
+        plt.savefig(output_fname, dpi=300)
             
         

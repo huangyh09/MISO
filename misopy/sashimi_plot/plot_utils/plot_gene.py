@@ -1,6 +1,7 @@
 ##
 ## Draw gene structure from a GFF file
 ##
+import h5py
 import os, sys, operator, subprocess
 import math
 import pysam
@@ -13,11 +14,12 @@ import misopy
 import misopy.gff_utils as gff_utils
 import misopy.sam_utils as sam_utils
 
-from misopy.sashimi_plot.Sashimi import Sashimi
-import misopy.sashimi_plot.plot_utils.plotting as plotting
-import misopy.sashimi_plot.plot_utils.plot_settings as plot_settings
-from misopy.sashimi_plot.plot_utils.plotting import show_spines
+from Sashimi import Sashimi
+import plot_utils.plotting as plotting
+import plot_utils.plot_settings as plot_settings
+from plot_utils.plotting import show_spines
 from misopy.parse_gene import parseGene
+
 
 def plot_density_single(settings, sample_label,
                         tx_start, tx_end, gene_obj, mRNAs, strand,
@@ -71,7 +73,8 @@ def plot_density_single(settings, sample_label,
         ymax = 1.1 * maxheight
     else:
         ymax = ymax
-    ymin = -.5 * ymax 
+    # ymin = -.5 * ymax 
+    ymin = -.4 * ymax 
 
     # Reduce memory footprint by using incremented graphcoords.
     compressed_x = []
@@ -140,9 +143,12 @@ def plot_density_single(settings, sample_label,
     axvar.spines['top'].set_color('none')
 
     if showXaxis:
+        plot_gene(tx_start, mRNAs, strand, graphcoords, 
+            exonwidth=0.4*ymax, ybase=-0.6*ymax)
+
+
         axvar.xaxis.set_ticks_position('bottom')
-        xlabel('Genomic coordinate (%s), "%s" strand'%(gene_obj.chrom,
-                                                       strand),
+        xlabel('Genomic coordinate (%s), "%s" strand'%(gene_obj.chrom, strand),
                fontsize=font_size)
         max_graphcoords = max(graphcoords) - 1
         coords_fontsize = font_size - (font_size * 0.2)
@@ -150,6 +156,8 @@ def plot_density_single(settings, sample_label,
                [graphToGene[int(x)] for x in \
                 linspace(0, max_graphcoords, nxticks)],
                fontsize=coords_fontsize)
+
+        # axvar.set_ylim(bottom=-2*ymax, top=1.1*ymax)
     else:
         axvar.spines['bottom'].set_color('none')
         xticks([])
@@ -166,6 +174,21 @@ def plot_density_single(settings, sample_label,
     xlim(0, max(graphcoords))
     # Return modified axis
     return axvar
+
+
+def get_event_title(event):
+	if event == "ENSMUSG00000042641.AS8":
+		return "DNMT3B exon2"
+	elif event == "ENSMUSG00000026417.AS3":
+		return "BRD4 exon5"
+	elif event == "ENSMUSG00000026288.AS16":
+		return "LSR exon4"
+	elif event == "ENSMUSG00000041879.AS15":
+		return "SAPCD2 exon2"
+	elif event == "ENSMUSG00000026150.AS2":
+		return "THAP3 exon3"
+	else:
+		return event
 
 
 # Plot density for a series of bam files.
@@ -218,7 +241,9 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
     nfiles = len(bam_files)
     if plot_title is not None:
         # Use custom title if given
-        suptitle(plot_title, fontsize=10)
+        _title = get_event_title(plot_title)
+    	suptitle(_title, fontsize=10)
+        # suptitle(plot_title, fontsize=10)
     else:
         suptitle(event, fontsize=10)
     plotted_axes = []
@@ -228,17 +253,28 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
             color = colors[i]
         else:
             color = None
-        if coverages is not None:
-            coverage = coverages[i]
-        else:
-            coverage = 1
+        
         if i < nfiles - 1:
             showXaxis = False 
         else:
             showXaxis = True 
 
         bam_file = os.path.expanduser(bam_files[i])
-        ax1 = subplot2grid((nfiles + 3, gene_posterior_ratio), (i, 0),
+
+        if coverages is not None:
+            coverage = coverages[i]
+        else:
+            coverage = 0
+            pysam_stats = pysam.idxstats(bam_file)
+            if type(pysam_stats) is not list:
+                pysam_stats = pysam_stats.split("\n")
+            for tp in pysam_stats: 
+                tmp = tp.strip().split("\t")
+                if len(tmp) >= 3:
+                    coverage += float(tp.strip().split("\t")[2])
+            coverage = coverage / float(10**6)
+
+        ax1 = subplot2grid((nfiles + 0, gene_posterior_ratio), (i, 0),
                            colspan=gene_posterior_ratio - 1)
         
         # Read sample label
@@ -259,18 +295,18 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
                                          font_size=font_size,
                                          junction_log_base=junction_log_base)
         plotted_axes.append(plotted_ax)
-
+            
         if show_posteriors:
             miso_file = os.path.expanduser(miso_files[i])
             try:
-                ax2 = subplot2grid((nfiles + 3, gene_posterior_ratio),\
+                ax2 = subplot2grid((nfiles + 0, gene_posterior_ratio),\
                     (i, gene_posterior_ratio - 1))
 
                 if not os.path.isfile(miso_file):
                     print "Warning: MISO file %s not found" %(miso_file)
 
                 print "Loading MISO file: %s" %(miso_file)
-                plot_posterior_single(miso_file, ax2, posterior_bins,
+                plot_posterior_single(miso_file, ax2, posterior_bins, event=event,
                                       showXaxis=showXaxis, show_ylabel=False,
                                       font_size=font_size,
                                       bar_posterior=bar_posterior)
@@ -296,13 +332,15 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
 
     # Reset axes based on this.
     # Set fake ymin bound to allow lower junctions to be visible
-    fake_ymin = -0.6 * max_used_yval
+    # fake_ymin = -0.6 * max_used_yval
+    fake_ymin = -1.1 * max_used_yval
     universal_yticks = linspace(0, max_used_yval,
                                 nyticks + 1)
     # Round up yticks
     universal_ticks = map(math.ceil, universal_yticks)
     for sample_num, curr_ax in enumerate(plotted_axes):
         if showYaxis:
+            # if showXaxis: fake_ymin = -1.2 * max_used_yval
             curr_ax.set_ybound(lower=fake_ymin, upper=max_used_yval)
             curr_yticklabels = []
             for label in universal_yticks:
@@ -357,10 +395,11 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
                 
 
     # Draw gene structure
-    ax = subplot2grid((nfiles + 3, gene_posterior_ratio), (nfiles + 1, 0),
-                      colspan=gene_posterior_ratio - 1, rowspan=2)
-    plot_mRNAs(tx_start, mRNAs, strand, graphcoords, reverse_minus)
-    subplots_adjust(hspace=.10, wspace=.7)
+    # ax = subplot2grid((nfiles + 3, gene_posterior_ratio), (nfiles + 1, 0),
+    #                   colspan=gene_posterior_ratio - 1, rowspan=1)
+    # plot_mRNAs(tx_start, mRNAs, strand, graphcoords, reverse_minus)
+    # subplots_adjust(hspace=.10, wspace=.7)
+    subplots_adjust(hspace=-0.1, wspace=0.3)
 
 
 def getScaling(tx_start, tx_end, strand, exon_starts, exon_ends,
@@ -489,22 +528,29 @@ def readsToWiggle_pysam(reads, tx_start, tx_end):
 #     return wiggle, jxns
 
 
-def plot_mRNAs(tx_start, mRNAs, strand, graphcoords, reverse_minus):
+def plot_mRNAs(tx_start, mRNAs, strand,  graphcoords=None, intron_scale=30, 
+               exon_scale=4, reverse_minus=False, exonwidth=0.3, narrows=50, 
+               gap=1.5, bound=1.0):
     """
     Draw the gene structure.
     """
-    yloc = 0 
-    exonwidth = .3
-    narrows = 50
-
-    for mRNA in mRNAs:
-        for s, e in mRNA:
-            s = s - tx_start
-            e = e - tx_start
+    cnt = 0
+    for i in range(len(mRNAs)):
+        mRNA = mRNAs[i]
+        yloc = gap*exonwidth*cnt
+        if len(mRNA) == 2: continue
+        cnt += 1
+        for j in range(len(mRNA)):
+            s = mRNA[j][0] - tx_start
+            e = mRNA[j][1] - tx_start
             x = [graphcoords[s], graphcoords[e], graphcoords[e], graphcoords[s]]
-            y = [yloc - exonwidth / 2, yloc - exonwidth / 2,\
-                yloc + exonwidth / 2, yloc + exonwidth / 2]
+            y = [yloc - exonwidth/2, yloc - exonwidth/2,
+                 yloc + exonwidth/2, yloc + exonwidth/2]
             fill(x, y, 'k', lw=.5, zorder=20)
+            if len(mRNA) == 3 and j == 0: 
+                fill(x, y, 'orange', lw=.5, zorder=20)
+            else:
+                fill(x, y, 'k', lw=.5, zorder=20)
 
         # Draw intron.
         axhline(yloc, color='k', lw=.5)
@@ -514,23 +560,60 @@ def plot_mRNAs(tx_start, mRNAs, strand, graphcoords, reverse_minus):
         for i in range(narrows):
             loc = float(i) * max(graphcoords) / narrows
             if strand == '+' or reverse_minus:
-                x = [loc - spread, loc, loc - spread]
+                x = [loc-spread, loc, loc-spread]
             else:
-                x = [loc + spread, loc, loc + spread]
-            y = [yloc - exonwidth / 5, yloc, yloc + exonwidth / 5]
+                x = [loc+spread, loc, loc+spread]
+            y = [yloc - exonwidth/5, yloc, yloc + exonwidth/5]
             plot(x, y, lw=.5, color='k')
 
-        yloc += 1 
-
     xlim(0, max(graphcoords)) 
-    ylim(-.5, len(mRNAs) + .5)
-    box(on=False)
+    # ylim(-bound*exonwidth, yloc+bound*exonwidth)
+    # box(on=False)
     xticks([])
     yticks([]) 
 
 
+def plot_gene(tx_start, mRNAs, strand,  graphcoords, reverse_minus=False, 
+              exonwidth=0.3, narrows=50, gap=1.5, bound=0.0, ybase=0):
+    """
+    Draw the gene structure.
+    """
+    cnt = 0
+    for i in range(len(mRNAs)):
+        mRNA = mRNAs[i]
+        yloc = gap*exonwidth*cnt + ybase
+        if len(mRNA) == 2: continue
+        cnt += 1
+        exon_sorted = np.sort(mRNA, axis=0)
+        for j in range(len(mRNA)):
+            s = mRNA[j][0] - tx_start
+            e = mRNA[j][1] - tx_start
+            x = [graphcoords[s], graphcoords[e], graphcoords[e], graphcoords[s]]
+            y = [yloc - exonwidth/2, yloc - exonwidth/2,
+                 yloc + exonwidth/2, yloc + exonwidth/2]
+            fill(x, y, 'k', lw=.5, zorder=20)
+            if len(mRNA) == 3 and mRNA[j][0] == exon_sorted[1,0]: 
+                fill(x, y, 'gray', lw=.0, zorder=20)
+            else:
+                fill(x, y, 'k', lw=.5, zorder=20)
+
+        # Draw intron.
+        axhline(yloc, color='k', lw=.5)
+
+        # Draw intron arrows.
+        spread = .2 * max(graphcoords) / narrows
+        for i in range(narrows):
+            loc = float(i) * max(graphcoords) / narrows
+            if strand == '+' or reverse_minus:
+                x = [loc-spread, loc, loc-spread]
+            else:
+                x = [loc+spread, loc, loc+spread]
+            y = [yloc - exonwidth/5, yloc, yloc + exonwidth/5]
+            plot(x, y, lw=.5, color='k')
+
 
 def plot_posterior_single(miso_f, axvar, posterior_bins,
+                          event=None,
                           showXaxis=True,
                           showYaxis=True,
                           show_ylabel=True,
@@ -540,12 +623,23 @@ def plot_posterior_single(miso_f, axvar, posterior_bins,
     Plot a posterior probability distribution for a MISO event.
     """
     posterior_bins = int(posterior_bins) 
-    psis = [] 
-    for line in open(miso_f):
-        if not line.startswith("#") and not line.startswith("sampled"):
-            psi, logodds = line.strip().split("\t")
-            psis.append(float(psi.split(",")[0]))
-  
+    if miso_f[-5:] == ".miso":
+        psis = []
+        for line in open(miso_f):
+            if not line.startswith("#") and not line.startswith("sampled"):
+                psi, logodds = line.strip().split("\t")
+                psis.append(float(psi.split(",")[0]))
+        prior = 0.5
+    else:
+        f = h5py.File(miso_f, "r")
+        idx = np.where(event+".in" == np.array(f["tran_ids"]))[0][0]
+        psis = np.array(f["Psi_sample"])[idx,:]
+        yy = np.dot(np.array(f["features"])[idx,:], 
+            np.array(f["W_sample"]).mean(axis=1))
+        prior = np.exp(yy) / (np.exp(yy)+1)
+        sigma = np.array(f["sigma"])[0]
+        f.close()
+
     ci = .95 
     alpha = 1 - ci
     lidx = int(round((alpha / 2) * len(psis)) - 1)
@@ -568,12 +662,23 @@ def plot_posterior_single(miso_f, axvar, posterior_bins,
         ymin = -.5 * ymax
 #             "$\Psi$ = %.2f\n$\Psi_{0.05}$ = %.2f\n$\Psi_{0.95}$ = %.2f" %\
 
-        text(1, ymax,
-             "$\Psi$ = %.2f\n[%.2f, %.2f]" % \
-             (mean(psis), clow, chigh),
-             fontsize=font_size,
-             va='top',
-             ha='left')
+        if miso_f[-5:] == ".miso":
+            text(1, ymax,
+                 "$\Psi$ = %.2f\n[%.2f, %.2f]" % \
+                 (mean(psis), clow, chigh),
+                 fontsize=font_size,
+                 va='top',
+                 ha='left')
+        else:
+            text(1, ymax,
+                 " $\Psi$ = %.2f\n Prior=%.2f" % \
+                 (mean(psis), prior),
+                 fontsize=font_size,
+                 va='top',
+                 ha='left')
+            xx = np.linspace(0.01, 0.99, 99)
+            x_pdf = uninormal_pdf(logit(xx), yy, sigma) / (xx * (1.0-xx))
+            plot(xx, x_pdf, linewidth=0.5, color="deepskyblue")
 
         ylim(ymin, ymax)
         axvar.spines['left'].set_bounds(0, ymax)
@@ -581,7 +686,8 @@ def plot_posterior_single(miso_f, axvar, posterior_bins,
         axvar.spines['top'].set_color('none')
         axvar.spines['bottom'].set_position(('data', 0)) 
         axvar.xaxis.set_ticks_position('bottom')
-        axvar.yaxis.set_ticks_position('left')
+        # axvar.yaxis.set_ticks_position('left')
+        # axvar.yaxis.set_ticks_position('right')
         if showYaxis:
             yticks(linspace(0, ymax, nyticks),\
                 ["%d"%(y) for y in linspace(0, ymax, nyticks)],\
@@ -605,19 +711,24 @@ def plot_posterior_single(miso_f, axvar, posterior_bins,
                  ecolor='k',
                  markerfacecolor="#ffffff",
                  markeredgecolor="k")
-        text(1, 1,
-             "$\Psi$ = %.2f\n[%.2f, %.2f]" % \
-             (mean(psis), clow, chigh),
-             fontsize=font_size,
-             va='top',
-             ha='left')
+        # text(1, 1,
+        #      "$\Psi$ = %.2f\n[%.2f, %.2f]" % \
+        #      (mean(psis), clow, chigh),
+        #      fontsize=font_size,
+        #      va='top',
+        #      ha='left')
+
         yticks([])
+
+    # title("$\Psi$ = %.2f; [%.2f, %.2f]" % \
+    #  (mean(psis), clow, chigh),
+    #  fontsize=font_size)
 
     # Use same x-axis for all subplots
     # but only show x-axis labels for the bottom plot
     xlim([0, 1])
     psi_axis_fontsize = font_size - (font_size * 0.3)
-    xticks([0, .2, .4, .6, .8, 1], fontsize=psi_axis_fontsize)
+    xticks([0, 0.2, 0.4, 0.6, 0.8, 1], fontsize=psi_axis_fontsize)
     
     if (not bar_posterior) and showYaxis:
         axes_to_show = ['bottom', 'left']
@@ -640,11 +751,30 @@ def plot_posterior_single(miso_f, axvar, posterior_bins,
         axvar.xaxis.set_major_formatter(majorFormatter)
         
         [label.set_visible(True) for label in axvar.get_xticklabels()]
-        xlabel("MISO $\Psi$", fontsize=font_size)
+        xlabel("BRIE posterior $\Psi$", fontsize=font_size)
         show_spines(axvar, axes_to_show)
     else:
         show_spines(axvar, axes_to_show)
         [label.set_visible(False) for label in axvar.get_xticklabels()]
+
+
+def logit(x, minval=0.001):
+    if isinstance(x,  (list, tuple, np.ndarray)):
+        x[1-x<minval] = 1-minval
+        x[x<minval] = minval
+    else:
+        x = max(minval, x)
+        x = min(1-minval, x)
+    val = np.log(x/(1-x))
+    return val
+
+def uninormal_pdf(x, mu, sigma, log=False):
+    mu = np.float(mu)
+    sigma = np.float(sigma)
+    pdf = np.log(1/(sigma*np.sqrt(2*np.pi))) - 0.5*((x-mu)/sigma)**2
+    if log is False:
+        pdf = np.exp(pdf)
+    return pdf
 
 
 def cubic_bezier(pts, t):
@@ -680,7 +810,8 @@ def plot_density_from_file(settings_f, pickle_filename, event,
                           event=event,
                           chrom=chrom,
                           settings_filename=settings_f,
-                          no_posteriors=no_posteriors)
+                          no_posteriors=no_posteriors,
+                          png=True)
     
     print "Plotting read densities and MISO estimates along event..."
     print "  - Event: %s" %(event)
