@@ -20,9 +20,9 @@ class Sashimi:
         """
         Initialize image settings.
         """
-        self.output_ext = ".pdf"
+        self.output_ext = "pdf"
         if png:
-            self.output_ext = ".png"
+            self.output_ext = "png"
         
         # Plot label, will be used in creating the plot
         # output filename
@@ -88,10 +88,10 @@ class Sashimi:
         output_fname = None
         if plot_label is not None:
             # Use custom plot label if given
-            ext = self.output_filename.rsplit(".")[0]
+            # ext = self.output_filename.rsplit(".")[-1]
+            ext = self.output_ext
             dirname = os.path.dirname(self.output_filename)
-            output_fname = \
-                os.path.dirname(dirname, "%s.%s" %(plot_label, ext))
+            output_fname = os.path.join(dirname, "%s.%s" %(plot_label, ext))
         else:
             output_fname = self.output_filename
         print "Saving plot to: %s" %(output_fname)

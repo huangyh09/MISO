@@ -16,16 +16,10 @@ miso_files = [
     "heartKOa",
     "heartKOb"]
 
-sample_labels = [
-    "heartWT1",
-    "heartWT2",
-    "heartKOa",
-    "heartKOb"]
-
 [plotting]
 # Dimensions of figure to be plotted (in inches)
 fig_width = 7
-fig_height = 3
+fig_height = 5 
 # Factor to scale down introns and exons by
 intron_scale = 30
 exon_scale = 4

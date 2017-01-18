@@ -232,8 +232,8 @@ def main():
                       "--plot-title \"My favorite gene\".")
     parser.add_option("--plot-label", dest="plot_label", default=None, nargs=1,
                       help="Plot label. If given, plot will be saved in the output directory as " \
-                      "the plot label ending in the relevant extension, e.g. <plot_label>.pdf. " \
-                      "Example: --plot-label my_gene")
+                      "the plot label ending in pdf or png format, e.g. <plot_label>.png. " \
+                      "Example: --plot-label my_gene.png.")
     parser.add_option("--output-dir", dest="output_dir", nargs=1, default=None,
                       help="Output directory.")
     (options, args) = parser.parse_args()

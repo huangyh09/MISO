@@ -1,7 +1,6 @@
 ##
 ## Draw gene structure from a GFF file
 ##
-import h5py
 import os, sys, operator, subprocess
 import math
 import pysam
@@ -9,6 +8,7 @@ import glob
 from pylab import *
 from matplotlib.patches import PathPatch 
 from matplotlib.path import Path
+import matplotlib.gridspec as gridspec
 
 import misopy
 import misopy.gff_utils as gff_utils
@@ -19,7 +19,6 @@ import plot_utils.plotting as plotting
 import plot_utils.plot_settings as plot_settings
 from plot_utils.plotting import show_spines
 from misopy.parse_gene import parseGene
-
 
 def plot_density_single(settings, sample_label,
                         tx_start, tx_end, gene_obj, mRNAs, strand,
@@ -70,11 +69,10 @@ def plot_density_single(settings, sample_label,
     
     maxheight = max(wiggle)
     if ymax is None:
-        ymax = 1.1 * maxheight
+        ymax = 1.2 * maxheight
     else:
         ymax = ymax
-    # ymin = -.5 * ymax 
-    ymin = -.4 * ymax 
+    ymin = -.5 * ymax 
 
     # Reduce memory footprint by using incremented graphcoords.
     compressed_x = []
@@ -143,12 +141,9 @@ def plot_density_single(settings, sample_label,
     axvar.spines['top'].set_color('none')
 
     if showXaxis:
-        plot_gene(tx_start, mRNAs, strand, graphcoords, 
-            exonwidth=0.4*ymax, ybase=-0.6*ymax)
-
-
         axvar.xaxis.set_ticks_position('bottom')
-        xlabel('Genomic coordinate (%s), "%s" strand'%(gene_obj.chrom, strand),
+        xlabel('Genomic coordinate (%s), "%s" strand'%(gene_obj.chrom,
+                                                       strand),
                fontsize=font_size)
         max_graphcoords = max(graphcoords) - 1
         coords_fontsize = font_size - (font_size * 0.2)
@@ -156,8 +151,6 @@ def plot_density_single(settings, sample_label,
                [graphToGene[int(x)] for x in \
                 linspace(0, max_graphcoords, nxticks)],
                fontsize=coords_fontsize)
-
-        # axvar.set_ylim(bottom=-2*ymax, top=1.1*ymax)
     else:
         axvar.spines['bottom'].set_color('none')
         xticks([])
@@ -174,21 +167,6 @@ def plot_density_single(settings, sample_label,
     xlim(0, max(graphcoords))
     # Return modified axis
     return axvar
-
-
-def get_event_title(event):
-	if event == "ENSMUSG00000042641.AS8":
-		return "DNMT3B exon2"
-	elif event == "ENSMUSG00000026417.AS3":
-		return "BRD4 exon5"
-	elif event == "ENSMUSG00000026288.AS16":
-		return "LSR exon4"
-	elif event == "ENSMUSG00000041879.AS15":
-		return "SAPCD2 exon2"
-	elif event == "ENSMUSG00000026150.AS2":
-		return "THAP3 exon3"
-	else:
-		return event
 
 
 # Plot density for a series of bam files.
@@ -241,41 +219,34 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
     nfiles = len(bam_files)
     if plot_title is not None:
         # Use custom title if given
-        _title = get_event_title(plot_title)
-    	suptitle(_title, fontsize=10)
-        # suptitle(plot_title, fontsize=10)
+        suptitle(plot_title, fontsize=10)
     else:
         suptitle(event, fontsize=10)
     plotted_axes = []
+
+    h_ratio = [1] * nfiles + [0.8, len(mRNAs)*0.25]
+    if show_posteriors:
+        w_ratio = [gene_posterior_ratio, 1]
+        gs = gridspec.GridSpec(nfiles+2, 2, height_ratios=h_ratio, 
+                               width_ratios=w_ratio)
+    else:
+        gs = gridspec.GridSpec(nfiles+2, 1, height_ratios=h_ratio)
     
     for i in range(nfiles):
         if colors is not None:
             color = colors[i]
         else:
             color = None
-        
+        if coverages is not None:
+            coverage = coverages[i]
+        else:
+            coverage = 1
         if i < nfiles - 1:
             showXaxis = False 
         else:
             showXaxis = True 
 
         bam_file = os.path.expanduser(bam_files[i])
-
-        if coverages is not None:
-            coverage = coverages[i]
-        else:
-            coverage = 0
-            pysam_stats = pysam.idxstats(bam_file)
-            if type(pysam_stats) is not list:
-                pysam_stats = pysam_stats.split("\n")
-            for tp in pysam_stats: 
-                tmp = tp.strip().split("\t")
-                if len(tmp) >= 3:
-                    coverage += float(tp.strip().split("\t")[2])
-            coverage = coverage / float(10**6)
-
-        ax1 = subplot2grid((nfiles + 0, gene_posterior_ratio), (i, 0),
-                           colspan=gene_posterior_ratio - 1)
         
         # Read sample label
         sample_label = settings["sample_labels"][i]
@@ -283,6 +254,7 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
         print "Reading sample label: %s" %(sample_label)
         print "Processing BAM: %s" %(bam_file)
         
+        ax1 = subplot(gs[i, 0])
         plotted_ax = plot_density_single(settings, sample_label,
                                          tx_start, tx_end, gene_obj, mRNAs, strand,
                                          graphcoords, graphToGene, bam_file, ax1, chrom,
@@ -295,18 +267,16 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
                                          font_size=font_size,
                                          junction_log_base=junction_log_base)
         plotted_axes.append(plotted_ax)
-            
+
         if show_posteriors:
             miso_file = os.path.expanduser(miso_files[i])
             try:
-                ax2 = subplot2grid((nfiles + 0, gene_posterior_ratio),\
-                    (i, gene_posterior_ratio - 1))
-
+                ax2 = subplot(gs[i, 1])
                 if not os.path.isfile(miso_file):
                     print "Warning: MISO file %s not found" %(miso_file)
 
                 print "Loading MISO file: %s" %(miso_file)
-                plot_posterior_single(miso_file, ax2, posterior_bins, event=event,
+                plot_posterior_single(miso_file, ax2, posterior_bins,
                                       showXaxis=showXaxis, show_ylabel=False,
                                       font_size=font_size,
                                       bar_posterior=bar_posterior)
@@ -328,19 +298,17 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
         # maximum y across all.
         used_yvals = [curr_ax.get_ylim()[1] for curr_ax in plotted_axes]
         # Round up
-        max_used_yval = math.ceil(max(used_yvals))
+        max_used_yval = max(used_yvals) // nyticks * nyticks
 
     # Reset axes based on this.
     # Set fake ymin bound to allow lower junctions to be visible
-    # fake_ymin = -0.6 * max_used_yval
-    fake_ymin = -1.1 * max_used_yval
+    fake_ymin = -0.6 * max_used_yval
     universal_yticks = linspace(0, max_used_yval,
                                 nyticks + 1)
     # Round up yticks
     universal_ticks = map(math.ceil, universal_yticks)
     for sample_num, curr_ax in enumerate(plotted_axes):
         if showYaxis:
-            # if showXaxis: fake_ymin = -1.2 * max_used_yval
             curr_ax.set_ybound(lower=fake_ymin, upper=max_used_yval)
             curr_yticklabels = []
             for label in universal_yticks:
@@ -395,11 +363,10 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
                 
 
     # Draw gene structure
-    # ax = subplot2grid((nfiles + 3, gene_posterior_ratio), (nfiles + 1, 0),
-    #                   colspan=gene_posterior_ratio - 1, rowspan=1)
-    # plot_mRNAs(tx_start, mRNAs, strand, graphcoords, reverse_minus)
+    ax = subplot(gs[nfiles + 1, 0])
+    plot_mRNAs(tx_start, mRNAs, strand, graphcoords, reverse_minus)
     # subplots_adjust(hspace=.10, wspace=.7)
-    subplots_adjust(hspace=-0.1, wspace=0.3)
+    subplots_adjust(hspace=.0, wspace=0.1)
 
 
 def getScaling(tx_start, tx_end, strand, exon_starts, exon_ends,
@@ -528,29 +495,22 @@ def readsToWiggle_pysam(reads, tx_start, tx_end):
 #     return wiggle, jxns
 
 
-def plot_mRNAs(tx_start, mRNAs, strand,  graphcoords=None, intron_scale=30, 
-               exon_scale=4, reverse_minus=False, exonwidth=0.3, narrows=50, 
-               gap=1.5, bound=1.0):
+def plot_mRNAs(tx_start, mRNAs, strand, graphcoords, reverse_minus):
     """
     Draw the gene structure.
     """
-    cnt = 0
-    for i in range(len(mRNAs)):
-        mRNA = mRNAs[i]
-        yloc = gap*exonwidth*cnt
-        if len(mRNA) == 2: continue
-        cnt += 1
-        for j in range(len(mRNA)):
-            s = mRNA[j][0] - tx_start
-            e = mRNA[j][1] - tx_start
+    yloc = 0 
+    exonwidth = .5
+    narrows = 50
+
+    for mRNA in mRNAs:
+        for s, e in mRNA:
+            s = s - tx_start
+            e = e - tx_start
             x = [graphcoords[s], graphcoords[e], graphcoords[e], graphcoords[s]]
-            y = [yloc - exonwidth/2, yloc - exonwidth/2,
-                 yloc + exonwidth/2, yloc + exonwidth/2]
+            y = [yloc - exonwidth / 2, yloc - exonwidth / 2,\
+                yloc + exonwidth / 2, yloc + exonwidth / 2]
             fill(x, y, 'k', lw=.5, zorder=20)
-            if len(mRNA) == 3 and j == 0: 
-                fill(x, y, 'orange', lw=.5, zorder=20)
-            else:
-                fill(x, y, 'k', lw=.5, zorder=20)
 
         # Draw intron.
         axhline(yloc, color='k', lw=.5)
@@ -560,56 +520,20 @@ def plot_mRNAs(tx_start, mRNAs, strand,  graphcoords=None, intron_scale=30,
         for i in range(narrows):
             loc = float(i) * max(graphcoords) / narrows
             if strand == '+' or reverse_minus:
-                x = [loc-spread, loc, loc-spread]
+                x = [loc - spread, loc, loc - spread]
             else:
-                x = [loc+spread, loc, loc+spread]
-            y = [yloc - exonwidth/5, yloc, yloc + exonwidth/5]
+                x = [loc + spread, loc, loc + spread]
+            y = [yloc - exonwidth / 5, yloc, yloc + exonwidth / 5]
             plot(x, y, lw=.5, color='k')
 
+        yloc += 1 
+
     xlim(0, max(graphcoords)) 
-    # ylim(-bound*exonwidth, yloc+bound*exonwidth)
-    # box(on=False)
+    ylim(-.25, len(mRNAs) - .75)
+    box(on=False)
     xticks([])
     yticks([]) 
 
-
-def plot_gene(tx_start, mRNAs, strand,  graphcoords, reverse_minus=False, 
-              exonwidth=0.3, narrows=50, gap=1.5, bound=0.0, ybase=0):
-    """
-    Draw the gene structure.
-    """
-    cnt = 0
-    for i in range(len(mRNAs)):
-        mRNA = mRNAs[i]
-        yloc = gap*exonwidth*cnt + ybase
-        if len(mRNA) == 2: continue
-        cnt += 1
-        exon_sorted = np.sort(mRNA, axis=0)
-        for j in range(len(mRNA)):
-            s = mRNA[j][0] - tx_start
-            e = mRNA[j][1] - tx_start
-            x = [graphcoords[s], graphcoords[e], graphcoords[e], graphcoords[s]]
-            y = [yloc - exonwidth/2, yloc - exonwidth/2,
-                 yloc + exonwidth/2, yloc + exonwidth/2]
-            fill(x, y, 'k', lw=.5, zorder=20)
-            if len(mRNA) == 3 and mRNA[j][0] == exon_sorted[1,0]: 
-                fill(x, y, 'gray', lw=.0, zorder=20)
-            else:
-                fill(x, y, 'k', lw=.5, zorder=20)
-
-        # Draw intron.
-        axhline(yloc, color='k', lw=.5)
-
-        # Draw intron arrows.
-        spread = .2 * max(graphcoords) / narrows
-        for i in range(narrows):
-            loc = float(i) * max(graphcoords) / narrows
-            if strand == '+' or reverse_minus:
-                x = [loc-spread, loc, loc-spread]
-            else:
-                x = [loc+spread, loc, loc+spread]
-            y = [yloc - exonwidth/5, yloc, yloc + exonwidth/5]
-            plot(x, y, lw=.5, color='k')
 
 
 def plot_posterior_single(miso_f, axvar, posterior_bins,
@@ -751,7 +675,7 @@ def plot_posterior_single(miso_f, axvar, posterior_bins,
         axvar.xaxis.set_major_formatter(majorFormatter)
         
         [label.set_visible(True) for label in axvar.get_xticklabels()]
-        xlabel("BRIE posterior $\Psi$", fontsize=font_size)
+        xlabel("Distribution $\Psi$", fontsize=font_size)
         show_spines(axvar, axes_to_show)
     else:
         show_spines(axvar, axes_to_show)
@@ -804,6 +728,15 @@ def plot_density_from_file(settings_f, pickle_filename, event,
     tx_start, tx_end, exon_starts, exon_ends, gene_obj, mRNAs, strand, chrom = \
         parseGene(pickle_filename, event)
 
+    # check the output format
+    is_png = False
+    if plot_label is not None:
+        if plot_label[-4:] == ".png":
+            is_png = True
+            plot_label = plot_label[:-4]
+        elif plot_label[-4:] == ".pdf":
+            plot_label = plot_label[:-4]
+
     # Override settings flag on whether to show posterior plots
     # if --no-posteriors was given to plot.py
     sashimi_obj = Sashimi(event, output_dir,
@@ -811,7 +744,7 @@ def plot_density_from_file(settings_f, pickle_filename, event,
                           chrom=chrom,
                           settings_filename=settings_f,
                           no_posteriors=no_posteriors,
-                          png=True)
+                          png=is_png)
     
     print "Plotting read densities and MISO estimates along event..."
     print "  - Event: %s" %(event)

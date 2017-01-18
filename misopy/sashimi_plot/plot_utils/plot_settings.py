@@ -4,7 +4,8 @@
 import sys
 import os
 import ast
-
+import pysam
+import numpy as np
 import ConfigParser
 
 import misopy
@@ -71,7 +72,8 @@ def parse_plot_settings(settings_filename, event=None, chrom=None,
                                      "bam_files",
                                      "bf_thresholds",
                                      "bar_color",
-                                     "sample_labels"],
+                                     "sample_labels",
+                                     "event_title"],
                         no_posteriors=False):
     """
     Populate a settings dictionary with the plotting parameters, parsed
@@ -98,6 +100,9 @@ def parse_plot_settings(settings_filename, event=None, chrom=None,
                                                                option))
             else:
                 settings[option] = config.get(section, option)
+
+    if "event_title" not in settings:
+        settings["event_title"] = None
 
     # Ensure that bf_thresholds are integers
     settings["bf_thresholds"] = [int(t) for t in settings["bf_thresholds"]]
@@ -152,7 +157,22 @@ def parse_plot_settings(settings_filename, event=None, chrom=None,
         # Normalize coverages per M
         coverages = [x / 1e6  for x in coverages]
     else:
-        coverages = [1 for x in settings["bam_files"]]
+        # coverages = [1 for x in settings["bam_files"]]
+        coverages = []
+        for _bam in settings["bam_files"]:
+            print(_bam)
+            coverage = 0
+            pysam_stats = pysam.idxstats(_bam)
+            print(pysam_stats)
+            if type(pysam_stats) is not list:
+                pysam_stats = pysam_stats.split("\n")
+            for tp in pysam_stats: 
+                tmp = tp.strip().split("\t")
+                if len(tmp) >= 3:
+                    coverage += float(tp.strip().split("\t")[2])
+            coverage = (coverage+1.0) / float(10**6)
+            coverages.append(coverage)
+        # coverages = [x / np.mean(coverages) for x in coverages]
     settings["coverages"] = coverages
 
     if len(settings["coverages"]) != len(settings["sample_labels"]):

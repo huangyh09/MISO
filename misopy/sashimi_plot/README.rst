@@ -11,14 +11,16 @@ scripts to make sashimi_ plot for visualizing splicing from RNA-seq reads.
 New features
 ============
 
-In this version, there are a few updates, as follows,
+In this version (v1.1), there are a few updates, including major changes as 
+follows,
 
-* Dec 2016 *
+1. If no given coverages, set it from sam/bam file directly.
 
-1. It doesn't need coverages, which will be set from sam/bam file directly.
+2. Changed the scale of subplots and mRNA plot. 
 
-2. It supports both MISO and BRIE outputs for prior and posterior.
+3. Set the yticks as integer.
 
-3. It optimized the scale of genes.
+4. Sopported png output format, by using ``--plot-lable test.png``
 
+5. It supports both MISO and BRIE outputs for prior and posterior.
 
