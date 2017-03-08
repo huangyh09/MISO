@@ -5,6 +5,7 @@ import os, sys, operator, subprocess
 import math
 import pysam
 import glob
+import numpy as np
 from pylab import *
 from matplotlib.patches import PathPatch 
 from matplotlib.path import Path
@@ -69,7 +70,7 @@ def plot_density_single(settings, sample_label,
     
     maxheight = max(wiggle)
     if ymax is None:
-        ymax = 1.2 * maxheight
+        ymax = 1.1 * maxheight
     else:
         ymax = ymax
     ymin = -.5 * ymax 
@@ -111,6 +112,7 @@ def plot_density_single(settings, sample_label,
             if leftss in sslists[i] and \
                 rightss in sslists[i]:
                 numisoforms += 1
+                #numisoforms = i+2 # For Vahid's data
         if numisoforms > 0:
             if numisoforms % 2 == 0: # put on bottom 
                 pts = [(ss1, 0), (ss1, -h), (ss2, -h), (ss2, 0)]
@@ -127,7 +129,7 @@ def plot_density_single(settings, sample_label,
 
             if number_junctions:
                 text(midpt[0], midpt[1], '%s'%(jxns[jxn]),
-                     fontsize=6, ha='center', va='center', backgroundcolor='w')
+                     fontsize=font_size, ha='center', va='center', backgroundcolor='w')
 
             a = Path(pts, [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
             p = PathPatch(a, ec=color, lw=log(jxns[jxn] + 1) /\
@@ -150,7 +152,7 @@ def plot_density_single(settings, sample_label,
         xticks(linspace(0, max_graphcoords, nxticks),
                [graphToGene[int(x)] for x in \
                 linspace(0, max_graphcoords, nxticks)],
-               fontsize=coords_fontsize)
+               fontsize=font_size)
     else:
         axvar.spines['bottom'].set_color('none')
         xticks([])
@@ -219,12 +221,12 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
     nfiles = len(bam_files)
     if plot_title is not None:
         # Use custom title if given
-        suptitle(plot_title, fontsize=10)
+        suptitle(plot_title, fontsize=1.4*font_size)
     else:
-        suptitle(event, fontsize=10)
+        suptitle(event, fontsize=1.4*font_size)
     plotted_axes = []
 
-    h_ratio = [1] * nfiles + [0.8, len(mRNAs)*0.25]
+    h_ratio = [1] * nfiles + [font_size/10.0, len(mRNAs)*0.25]
     if show_posteriors:
         w_ratio = [gene_posterior_ratio, 1]
         gs = gridspec.GridSpec(nfiles+2, 2, height_ratios=h_ratio, 
@@ -276,7 +278,7 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
                     print "Warning: MISO file %s not found" %(miso_file)
 
                 print "Loading MISO file: %s" %(miso_file)
-                plot_posterior_single(miso_file, ax2, posterior_bins,
+                plot_posterior_single(miso_file, ax2, posterior_bins, event,
                                       showXaxis=showXaxis, show_ylabel=False,
                                       font_size=font_size,
                                       bar_posterior=bar_posterior)
@@ -298,7 +300,7 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
         # maximum y across all.
         used_yvals = [curr_ax.get_ylim()[1] for curr_ax in plotted_axes]
         # Round up
-        max_used_yval = max(used_yvals) // nyticks * nyticks
+        max_used_yval = max(used_yvals) * 1.05 // nyticks * nyticks
 
     # Reset axes based on this.
     # Set fake ymin bound to allow lower junctions to be visible
@@ -326,7 +328,7 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
             curr_ax.set_yticks(universal_yticks)
             curr_ax.yaxis.set_ticks_position('left')
             curr_ax.spines["right"].set_color('none')
-            if show_ylabel:
+            if show_ylabel and sample_num == nfiles // 2:
                 y_horz_alignment = 'left'
                 if logged:
                     curr_ax.set_ylabel('RPKM $(\mathregular{\log}_{\mathregular{10}})$',
@@ -356,7 +358,7 @@ def plot_density(sashimi_obj, pickle_filename, event, plot_title=None):
         curr_label = settings["sample_labels"][sample_num]
         curr_ax.text(max(graphcoords), label_ypos,
                      curr_label,
-                     fontsize=font_size,
+                     fontsize=font_size*1.2,
                      va='bottom',
                      ha='right',
                      color=sample_color)
@@ -554,6 +556,13 @@ def plot_posterior_single(miso_f, axvar, posterior_bins,
                 psi, logodds = line.strip().split("\t")
                 psis.append(float(psi.split(",")[0]))
         prior = 0.5
+    elif miso_f[-3:] == ".gz":
+        _data = np.genfromtxt(miso_f, dtype="str", delimiter=",")
+        idx = np.where(event+".in" == _data[:,0])[0][0]
+        psis = _data[idx,5:].astype(float)
+        yy = float(_data[idx,3])
+        prior = np.exp(yy) / (np.exp(yy)+1)
+        sigma = float(_data[idx,4])
     else:
         f = h5py.File(miso_f, "r")
         idx = np.where(event+".in" == np.array(f["tran_ids"]))[0][0]

@@ -138,7 +138,7 @@ def parse_plot_settings(settings_filename, event=None, chrom=None,
 
     if ("miso_prefix" in settings) and (event != None and chrom != None) \
         and settings["show_posteriors"]:
-        if settings["miso_files"][0][-3:] == ".h5":
+        if [".h5", ".gz"].count(settings["miso_files"][0][-3:]) == 1:
             miso_files = [settings["miso_prefix"]+x for x in settings["miso_files"]]
         else:
             miso_files = miso_utils.get_miso_output_files(event, chrom, settings)
@@ -160,10 +160,10 @@ def parse_plot_settings(settings_filename, event=None, chrom=None,
         # coverages = [1 for x in settings["bam_files"]]
         coverages = []
         for _bam in settings["bam_files"]:
-            print(_bam)
+            #print(_bam)
             coverage = 0
             pysam_stats = pysam.idxstats(_bam)
-            print(pysam_stats)
+            #print(pysam_stats)
             if type(pysam_stats) is not list:
                 pysam_stats = pysam_stats.split("\n")
             for tp in pysam_stats: 
